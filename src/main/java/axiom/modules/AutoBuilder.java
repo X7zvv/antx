@@ -22,6 +22,8 @@ public class AutoBuilder extends Module {
     private BlockPos anchor;
     private int timer, idle;
     private String missing = "";
+    private boolean paused;
+    public boolean togglePause() { paused = !paused; return paused; }
 
     public AutoBuilder() {
         super("AutoBuilder");
@@ -40,7 +42,7 @@ public class AutoBuilder extends Module {
             pending.clear();
             pending.addAll(s.blocks);
             anchor = mc.player.blockPosition().relative(mc.player.getDirection(), 2);
-            timer = 0; idle = 0; missing = "";
+            timer = 0; idle = 0; missing = ""; paused = false;
             setEnabled(true);
             return null;
         } catch (Exception e) {
@@ -53,7 +55,7 @@ public class AutoBuilder extends Module {
     private static String key(BlockState s) { return BuiltInRegistries.BLOCK.getKey(s.getBlock()).toString(); }
 
     @Override public void onTick() {
-        if (mc.gameMode == null || anchor == null) return;
+        if (mc.gameMode == null || anchor == null || paused) return;
         if (pending.isEmpty()) {
             mc.player.displayClientMessage(Component.literal("[Axiom] Build finished."), false);
             setEnabled(false);

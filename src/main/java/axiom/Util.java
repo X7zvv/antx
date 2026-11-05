@@ -4,6 +4,10 @@ import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Predicate;
 import net.minecraft.client.Minecraft;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.network.protocol.game.ServerboundSetCarriedItemPacket;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.item.ItemStack;
@@ -56,5 +60,24 @@ public final class Util {
         o.keyUp.setDown(false); o.keyDown.setDown(false);
         o.keyLeft.setDown(false); o.keyRight.setDown(false);
         o.keyJump.setDown(false); o.keySprint.setDown(false);
+    }
+
+    public static BlockPos miningPos;
+
+    /** Picks the best hotbar tool, looks at the block and keeps breaking it. Call every tick. */
+    public static void mine(BlockPos p) {
+        BlockState st = mc.level.getBlockState(p);
+        int best = -1; float bestSpeed = 1f;
+        for (int i = 0; i < 9; i++) {
+            float sp = mc.player.getInventory().getItem(i).getDestroySpeed(st);
+            if (sp > bestSpeed) { bestSpeed = sp; best = i; }
+        }
+        select(best);
+        lookAt(Vec3.atCenterOf(p));
+        Vec3 e = mc.player.getEyePosition();
+        Direction face = Direction.getApproximateNearest(e.x - (p.getX() + 0.5), e.y - (p.getY() + 0.5), e.z - (p.getZ() + 0.5));
+        if (!p.equals(miningPos)) { mc.gameMode.startDestroyBlock(p, face); miningPos = p; }
+        else mc.gameMode.continueDestroyBlock(p, face);
+        mc.player.swing(InteractionHand.MAIN_HAND);
     }
 }

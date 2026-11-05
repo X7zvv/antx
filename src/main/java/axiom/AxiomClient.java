@@ -7,7 +7,14 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.HudElementRegistry;
+import net.fabricmc.fabric.api.client.rendering.v1.hud.VanillaHudElements;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.resources.Identifier;
+import org.lwjgl.glfw.GLFW;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.command.v2.FabricClientCommandSource;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -37,29 +44,53 @@ public class AxiomClient implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
-        MODULES.add(new PlayerESP());
-        MODULES.add(new Fullbright());
-        MODULES.add(new AutoSprint());
-        MODULES.add(new Fly());
-        MODULES.add(new TriggerBot());
-        MODULES.add(new AimAssist());
-        MODULES.add(new AutoTotem());
-        MODULES.add(new AutoCrystal());
-        MODULES.add(new CrystalPvP());
-        MODULES.add(new SwordPvP());
-        MODULES.add(new MacePvP());
-        MODULES.add(new BaseAlert());
-        MODULES.add(new AutoTPA());
-        MODULES.add(new AutoSell());
-        MODULES.add(new AutoBuy());
-        MODULES.add(new AutoBuilder());
-        MODULES.add(new AreaMiner());
-        MODULES.add(new ElytraPilot());
-        MODULES.add(new BlockFinder());
+        // Combat
+        MODULES.add(new TriggerBot().in("Combat"));
+        MODULES.add(new AimAssist().in("Combat"));
+        MODULES.add(new AutoTotem().in("Combat"));
+        MODULES.add(new AutoCrystal().in("Combat"));
+        MODULES.add(new CrystalPvP().in("Combat"));
+        MODULES.add(new SwordPvP().in("Combat"));
+        MODULES.add(new MacePvP().in("Combat"));
+        // Movement
+        MODULES.add(new Fly().in("Movement"));
+        MODULES.add(new AutoSprint().in("Movement"));
+        MODULES.add(new ElytraPilot().in("Movement"));
+        // Render
+        MODULES.add(new PlayerESP().in("Render"));
+        MODULES.add(new Fullbright().in("Render"));
+        MODULES.add(new HudModule().in("Render"));
+        // Donut
+        MODULES.add(new AutoSell().in("Donut"));
+        MODULES.add(new AutoBuy().in("Donut"));
+        MODULES.add(new ItemDropper().in("Donut"));
+        MODULES.add(new RTPBaseFinder().in("Donut"));
+        MODULES.add(new SpawnerProtect().in("Donut"));
+        MODULES.add(new AutoTPA().in("Donut"));
+        MODULES.add(new BaseAlert().in("Donut"));
+        MODULES.add(new TraderFinder().in("Donut"));
+        // Finder
+        MODULES.add(new BaseFinder().in("Finder"));
+        MODULES.add(new BlockFinder().in("Finder"));
+        // Auto
+        MODULES.add(new AutoBuilder().in("Auto"));
+        MODULES.add(new AreaMiner().in("Auto"));
+        MODULES.add(new AutoMine().in("Auto"));
+        MODULES.add(new AutoEat().in("Auto"));
+        MODULES.add(new AutoTool().in("Auto"));
+        // Misc
+        MODULES.add(new CordSnapper().in("Misc"));
         ConfigManager.load();
 
+        KeyMapping.Category cat = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("axiom", "main"));
+        KeyMapping guiKey = KeyBindingHelper.registerKeyBinding(
+            new KeyMapping("key.axiom.gui", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_RIGHT_SHIFT, cat));
+        HudElementRegistry.attachElementBefore(VanillaHudElements.CHAT,
+            Identifier.fromNamespaceAndPath("axiom", "hud"), (g, dt) -> HudModule.render(g));
+
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
-            if (openGui) { openGui = false; client.setScreen(new ClickGui()); }
+            while (guiKey.consumeClick()) if (client.screen == null) openGui = true;
+            if (openGui) { openGui = false; if (client.screen == null) client.setScreen(new ClickGui()); }
             if (client.player == null || client.level == null) return;
             for (Module m : MODULES) {
                 if (!m.enabled) continue;
@@ -87,6 +118,11 @@ public class AxiomClient implements ClientModInitializer {
             };
             dispatcher.register(literal("axiom")
                 .then(literal("gui").executes(c -> { openGui = true; return 1; }))
+                .then(literal("panic").executes(c -> {
+                    for (Module m : MODULES) m.setEnabled(false);
+                    say(c.getSource(), "All modules disabled.");
+                    return 1;
+                }))
                 .then(literal("list").executes(c -> {
                     for (Module m : MODULES) say(c.getSource(), (m.enabled ? "[ON]  " : "[off] ") + m.name);
                     return 1;
@@ -135,6 +171,11 @@ public class AxiomClient implements ClientModInitializer {
                         return 1;
                     }))))
                 .then(literal("build")
+                    .then(literal("pause").executes(c -> {
+                        AutoBuilder b = (AutoBuilder) find("AutoBuilder");
+                        say(c.getSource(), b.togglePause() ? "Builder paused." : "Builder resumed.");
+                        return 1;
+                    }))
                     .then(literal("stop").executes(c -> {
                         Module b = find("AutoBuilder");
                         if (b != null) b.setEnabled(false);

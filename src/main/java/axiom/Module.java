@@ -8,9 +8,11 @@ public abstract class Module {
     protected static final Minecraft mc = Minecraft.getInstance();
     public final String name;
     public boolean enabled;
+    public String category = "Misc";
     public final Map<String, String> settings = new LinkedHashMap<>();
 
     protected Module(String name) { this.name = name; }
+    public Module in(String c) { this.category = c; return this; }
 
     public void setEnabled(boolean e) {
         if (e == enabled) return;

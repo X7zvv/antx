@@ -8,7 +8,11 @@ Client-side Fabric mod. Mojang mappings, Loom 1.14, Fabric API 0.141.1+1.21.11.
    `gradle wrapper --gradle-version 9.2.1` (or copy gradlew/gradle/ from the Fabric example mod).
 3. `./gradlew build` -> jar in `build/libs/axiom-client-1.0.0.jar`, drop in `mods/`.
 
+## Open the GUI
+Press **Right Shift** (rebind in Options > Controls > Axiom Client). Tabs: Combat, Movement, Render, Donut, Finder, Auto, Misc. Green = on, `...` = settings. ESC closes. Chat alternative: `/axiom gui`.
+
 ## Commands (chat)
+- `/axiom panic` disables everything, `/axiom build pause` pauses the builder
 - `/axiom gui` opens a click GUI. `/axiom friend add|remove|list <name>`
 - `/axiom list` | `/axiom toggle <module>` | `/axiom info <module>`
 - `/axiom set <module> <key> <value>`

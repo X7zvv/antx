@@ -16,12 +16,13 @@ public class AutoBuy extends Module {
     private static final Pattern PRICE = Pattern.compile("\\$\\s*([0-9][0-9,]*\\.?[0-9]*)\\s*([kKmMbB]?)");
     private int timer, cd;
     public AutoBuy() {
-        super("AutoBuy");
+        super("AuctionSniper");
         settings.put("command", "ah");
         settings.put("item", "");          // name/id substring to buy, empty = any
         settings.put("maxPrice", "1000");  // price read from item lore
         settings.put("refresh", "100");    // ticks before closing + reopening the AH
         settings.put("delay", "4");        // ticks between clicks
+        settings.put("perItem", "0");      // 1 = compare price per single item (price / stack size)
     }
     @Override public void onEnable() { timer = 0; cd = 0; }
     @Override public void onTick() {
@@ -52,6 +53,7 @@ public class AutoBuy extends Module {
             if (!f.isEmpty() && !st.getHoverName().getString().toLowerCase().contains(f)
                     && !BuiltInRegistries.ITEM.getKey(st.getItem()).toString().contains(f)) continue;
             double price = price(st);
+            if (price >= 0 && num("perItem", 0) >= 1 && st.getCount() > 1) price /= st.getCount();
             if (price >= 0 && price <= max) {
                 click(m.containerId, i);
                 cd = (int) num("delay", 4);
