@@ -3,6 +3,7 @@ package axiom;
 import axiom.modules.*;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.suggestion.SuggestionProvider;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -54,12 +55,15 @@ public class AxiomClient implements ClientModInitializer {
         MODULES.add(new MacePvP().in("Combat"));
         // Movement
         MODULES.add(new Fly().in("Movement"));
+        MODULES.add(new Freecam().in("Movement"));
         MODULES.add(new AutoSprint().in("Movement"));
         MODULES.add(new ElytraPilot().in("Movement"));
         // Render
         MODULES.add(new PlayerESP().in("Render"));
         MODULES.add(new Fullbright().in("Render"));
         MODULES.add(new HudModule().in("Render"));
+        MODULES.add(new BlockEsp().in("Render"));
+        MODULES.add(new BaseMap().in("Render"));
         // Donut
         MODULES.add(new AutoSell().in("Donut"));
         MODULES.add(new AutoBuy().in("Donut"));
@@ -70,6 +74,7 @@ public class AxiomClient implements ClientModInitializer {
         MODULES.add(new BaseAlert().in("Donut"));
         MODULES.add(new TraderFinder().in("Donut"));
         // Finder
+        MODULES.add(new BaseScanner().in("Finder"));
         MODULES.add(new BaseFinder().in("Finder"));
         MODULES.add(new BlockFinder().in("Finder"));
         // Auto
@@ -78,16 +83,28 @@ public class AxiomClient implements ClientModInitializer {
         MODULES.add(new AutoMine().in("Auto"));
         MODULES.add(new AutoEat().in("Auto"));
         MODULES.add(new AutoTool().in("Auto"));
+        MODULES.add(new ChestStealer().in("Auto"));
         // Misc
+        MODULES.add(new AntiAFK().in("Misc"));
+        MODULES.add(new AutoLog().in("Misc"));
         MODULES.add(new CordSnapper().in("Misc"));
+        MODULES.add(new ClientSettings().in("Misc"));
         ConfigManager.load();
 
         KeyMapping.Category cat = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("axiom", "main"));
         KeyMapping guiKey = KeyBindingHelper.registerKeyBinding(
             new KeyMapping("key.axiom.gui", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_RIGHT_SHIFT, cat));
         HudElementRegistry.attachElementBefore(VanillaHudElements.CHAT,
-            Identifier.fromNamespaceAndPath("axiom", "hud"), (g, dt) -> HudModule.render(g));
+            Identifier.fromNamespaceAndPath("axiom", "hud"), (g, dt) -> {
+                Freecam.frame();
+                BlockEsp.render(g, dt.getGameTimeDeltaPartialTick(false));
+                HudModule.render(g);
+                BaseMap.render(g);
+            });
 
+        ClientTickEvents.START_CLIENT_TICK.register(client -> {
+            if (find("Freecam") instanceof Freecam f && f.enabled) f.preTick();
+        });
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (guiKey.consumeClick()) if (client.screen == null) openGui = true;
             if (openGui) { openGui = false; if (client.screen == null) client.setScreen(new ClickGui()); }
@@ -118,6 +135,40 @@ public class AxiomClient implements ClientModInitializer {
             };
             dispatcher.register(literal("axiom")
                 .then(literal("gui").executes(c -> { openGui = true; return 1; }))
+                .then(literal("profile")
+                    .then(literal("list").executes(c -> { say(c.getSource(), "Profiles: " + ConfigManager.profiles()); return 1; }))
+                    .then(literal("save").then(argument("name", StringArgumentType.word()).executes(c -> {
+                        boolean ok = ConfigManager.saveProfile(StringArgumentType.getString(c, "name"));
+                        say(c.getSource(), ok ? "Profile saved." : "Saving failed.");
+                        return ok ? 1 : 0;
+                    })))
+                    .then(literal("load").then(argument("name", StringArgumentType.word()).executes(c -> {
+                        boolean ok = ConfigManager.loadProfile(StringArgumentType.getString(c, "name"));
+                        say(c.getSource(), ok ? "Profile loaded." : "Profile not found.");
+                        return ok ? 1 : 0;
+                    }))))
+                .then(literal("bases")
+                    .then(literal("save").executes(c -> {
+                        var l = BaseData.flagged();
+                        java.util.List<String> lines = new java.util.ArrayList<>();
+                        for (var b : l) lines.add(b.x + " " + b.y + " " + b.z + "  dist " + (int) b.dist + "  score " + b.score()
+                            + "  storage " + b.storage + " spawner " + b.spawners + " placed " + b.placed + " tunnel " + b.tunnels + " shaft " + b.shafts);
+                        try {
+                            Files.write(FabricLoader.getInstance().getGameDir().resolve("axiom_bases.txt"), lines);
+                            say(c.getSource(), l.size() + " bases written to axiom_bases.txt");
+                        } catch (IOException e) { say(c.getSource(), "Write failed: " + e.getMessage()); return 0; }
+                        return 1;
+                    }))
+                    .then(literal("clear").executes(c -> { BaseData.clear(); say(c.getSource(), "Base data cleared."); return 1; }))
+                    .executes(c -> {
+                        var l = BaseData.flagged();
+                        if (l.isEmpty()) { say(c.getSource(), "No bases flagged yet. Enable BaseScanner and explore."); return 1; }
+                        for (int i = 0; i < Math.min(8, l.size()); i++) {
+                            var b = l.get(i);
+                            say(c.getSource(), b.x + " " + b.y + " " + b.z + "  " + (int) b.dist + "m  score " + b.score());
+                        }
+                        return 1;
+                    }))
                 .then(literal("panic").executes(c -> {
                     for (Module m : MODULES) m.setEnabled(false);
                     say(c.getSource(), "All modules disabled.");

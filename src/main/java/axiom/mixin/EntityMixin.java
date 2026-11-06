@@ -13,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class EntityMixin {
     @Inject(method = "isCurrentlyGlowing", at = @At("HEAD"), cancellable = true)
     private void axiom$esp(CallbackInfoReturnable<Boolean> cir) {
-        if (PlayerESP.active && (Object) this instanceof Player p && p != Minecraft.getInstance().player) {
+        if (PlayerESP.active && (Object) this instanceof Player p && p != Minecraft.getInstance().player && PlayerESP.shouldGlow(p)) {
             cir.setReturnValue(true);
         }
     }

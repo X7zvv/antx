@@ -10,7 +10,7 @@ import net.minecraft.network.chat.Component;
 public class AutoMine extends Module {
     private Direction dir = Direction.NORTH;
     private BlockPos start = BlockPos.ZERO;
-    public AutoMine() { super("AutoMine"); settings.put("length", "0"); }   // 0 = unlimited
+    public AutoMine() { super("AutoMine"); settings.put("length", "0"); settings.put("lavaCheck", "1"); }   // length 0 = unlimited
     @Override public void onEnable() { dir = mc.player.getDirection(); start = mc.player.blockPosition(); Util.miningPos = null; }
     @Override public void onDisable() { if (mc.player != null) Util.releaseKeys(); Util.miningPos = null; }
 
@@ -25,7 +25,7 @@ public class AutoMine extends Module {
     @Override public void onTick() {
         var me = mc.player;
         BlockPos feet = me.blockPosition();
-        for (int k = 1; k <= 3; k++) {
+        for (int k = 1; k <= (num("lavaCheck", 1) >= 1 ? 3 : 0); k++) {
             BlockPos p = feet.relative(dir, k);
             for (BlockPos q : new BlockPos[] { p, p.above(), p.below() })
                 if (!mc.level.getBlockState(q).getFluidState().isEmpty()) { stop("liquid ahead"); return; }

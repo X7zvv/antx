@@ -1,5 +1,6 @@
 package axiom.modules;
 
+import axiom.BaseData;
 import axiom.Module;
 import axiom.Util;
 import net.minecraft.network.chat.Component;
@@ -18,12 +19,12 @@ public class RTPBaseFinder extends Module {
         settings.put("command", "rtp");
         settings.put("wait", "100");        // ticks to wait after teleport before scanning
         settings.put("cooldown", "200");    // ticks between /rtp commands
-        settings.put("minStorage", "4");
-        settings.put("radius", "10");
+        settings.put("minScore", "12");
+        settings.put("radius", "6");
         settings.put("playerAlert", "48");  // blocks, 0 = off
         settings.put("stopOnFind", "1");
     }
-    @Override public void onEnable() { phase = 0; timer = 0; cooldown = 0; BaseFinder.SEEN.clear(); }
+    @Override public void onEnable() { phase = 0; timer = 0; cooldown = 0; BaseData.clear(); }
     @Override public void onTick() {
         double pa = num("playerAlert", 48);
         if (pa > 0 && !alerted) {
@@ -48,7 +49,8 @@ public class RTPBaseFinder extends Module {
             }
             case 2 -> {
                 if (++timer < num("wait", 100)) return;
-                int f = BaseFinder.scanOnce((int) num("minStorage", 4), true, (int) num("radius", 10));
+                BaseData.minScore = (int) num("minScore", 12);
+                int f = BaseScanner.scanNow((int) num("radius", 6), true);
                 if (f > 0 && num("stopOnFind", 1) >= 1) {
                     mc.player.displayClientMessage(Component.literal("[Axiom] RTPBaseFinder: base found, stopped."), false);
                     mc.player.playSound(SoundEvents.NOTE_BLOCK_BELL.value(), 1.0f, 1.0f);

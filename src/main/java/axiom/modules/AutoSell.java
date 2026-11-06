@@ -14,24 +14,33 @@ public class AutoSell extends Module {
         settings.put("interval", "600");   // ticks between cycles
         settings.put("only", "");          // item-name filter, empty = everything
         settings.put("keepHotbar", "1");   // 1 = never sell hotbar items
+        settings.put("minItems", "1");     // only start a cycle with at least this many item stacks
+        settings.put("wait", "6");         // ticks to wait after the menu opens / before it closes
     }
     @Override public void onEnable() { phase = 0; timer = (int) num("interval", 600); }
+    private int stacks() {
+        int n = 0;
+        for (int i = 9; i < 36; i++) if (!mc.player.getInventory().getItem(i).isEmpty()) n++;
+        return n;
+    }
     @Override public void onTick() {
         timer++;
+        int wait = (int) num("wait", 6);
         switch (phase) {
             case 0 -> {
                 if (timer >= num("interval", 600) && mc.screen == null) {
+                    if (stacks() < num("minItems", 1)) { timer = 0; return; }
                     mc.player.connection.sendCommand(str("command", "sell"));
                     phase = 1; timer = 0;
                 }
             }
             case 1 -> {
                 if (mc.screen instanceof AbstractContainerScreen<?> s) {
-                    if (timer >= 6) { moveAll(s); phase = 2; timer = 0; }
+                    if (timer >= wait) { moveAll(s); phase = 2; timer = 0; }
                 } else if (timer > 60) { phase = 0; timer = 0; }
             }
             case 2 -> {
-                if (timer >= 6) { mc.player.closeContainer(); phase = 0; timer = 0; }
+                if (timer >= wait) { mc.player.closeContainer(); phase = 0; timer = 0; }
             }
         }
     }

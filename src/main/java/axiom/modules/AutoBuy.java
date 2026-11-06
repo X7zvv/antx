@@ -7,24 +7,28 @@ import net.minecraft.client.gui.screens.inventory.AbstractContainerScreen;
 import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
+import net.minecraft.sounds.SoundEvents;
 import net.minecraft.world.inventory.ClickType;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.component.ItemLore;
 
-/** Opens the auction house, buys the first listing at or under maxPrice, clicks Confirm. */
+/** AuctionSniper: opens the auction house, buys the first listing in your price window, clicks Confirm. */
 public class AutoBuy extends Module {
     private static final Pattern PRICE = Pattern.compile("\\$\\s*([0-9][0-9,]*\\.?[0-9]*)\\s*([kKmMbB]?)");
-    private int timer, cd;
+    private int timer, cd, bought;
     public AutoBuy() {
         super("AuctionSniper");
         settings.put("command", "ah");
         settings.put("item", "");          // name/id substring to buy, empty = any
+        settings.put("minPrice", "0");
         settings.put("maxPrice", "1000");  // price read from item lore
+        settings.put("perItem", "0");      // 1 = compare price per single item (price / stack size)
         settings.put("refresh", "100");    // ticks before closing + reopening the AH
         settings.put("delay", "4");        // ticks between clicks
-        settings.put("perItem", "0");      // 1 = compare price per single item (price / stack size)
+        settings.put("stopAfter", "0");    // stop after N purchases, 0 = never
+        settings.put("alert", "1");        // sound on purchase
     }
-    @Override public void onEnable() { timer = 0; cd = 0; }
+    @Override public void onEnable() { timer = 0; cd = 0; bought = 0; }
     @Override public void onTick() {
         if (cd > 0) { cd--; return; }
         if (!(mc.screen instanceof AbstractContainerScreen<?> s)) {
@@ -37,15 +41,21 @@ public class AutoBuy extends Module {
         var m = s.getMenu();
         int top = m.slots.size() - 36;
         if (top <= 0) return;
-        // 1) confirmation screen
         for (int i = 0; i < top; i++) {
             ItemStack st = m.getSlot(i).getItem();
             if (!st.isEmpty() && st.getHoverName().getString().toLowerCase().contains("confirm")) {
-                click(m.containerId, i); cd = 4; return;
+                click(m.containerId, i); cd = 4;
+                bought++;
+                if (num("alert", 1) >= 1) mc.player.playSound(SoundEvents.NOTE_BLOCK_PLING.value(), 1.0f, 1.5f);
+                int stop = (int) num("stopAfter", 0);
+                if (stop > 0 && bought >= stop) {
+                    mc.player.displayClientMessage(Component.literal("[Axiom] AuctionSniper: " + bought + " bought, stopped."), false);
+                    setEnabled(false);
+                }
+                return;
             }
         }
-        // 2) listing scan
-        double max = num("maxPrice", 1000);
+        double max = num("maxPrice", 1000), min = num("minPrice", 0);
         String f = str("item", "").toLowerCase().trim();
         for (int i = 0; i < top; i++) {
             ItemStack st = m.getSlot(i).getItem();
@@ -54,13 +64,12 @@ public class AutoBuy extends Module {
                     && !BuiltInRegistries.ITEM.getKey(st.getItem()).toString().contains(f)) continue;
             double price = price(st);
             if (price >= 0 && num("perItem", 0) >= 1 && st.getCount() > 1) price /= st.getCount();
-            if (price >= 0 && price <= max) {
+            if (price >= 0 && price <= max && price >= min) {
                 click(m.containerId, i);
                 cd = (int) num("delay", 4);
                 return;
             }
         }
-        // 3) nothing found: refresh
         if (++timer >= num("refresh", 100)) { mc.player.closeContainer(); timer = 0; }
     }
     private void click(int id, int slot) {

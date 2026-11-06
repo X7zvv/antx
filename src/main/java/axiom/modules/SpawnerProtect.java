@@ -14,6 +14,7 @@ public class SpawnerProtect extends Module {
         super("SpawnerProtect");
         settings.put("range", "24");
         settings.put("reach", "5");
+        settings.put("logoff", "1");   // 1 = disconnect when done, 0 = just stop
     }
     @Override public void onEnable() { tripped = false; Util.miningPos = null; }
     @Override public void onDisable() { if (mc.player != null) Util.releaseKeys(); Util.miningPos = null; }
@@ -37,7 +38,8 @@ public class SpawnerProtect extends Module {
         }
         if (best != null) { Util.mine(best); return; }
         Util.miningPos = null;
-        me.connection.getConnection().disconnect(Component.literal("[Axiom] SpawnerProtect: disconnected"));
         setEnabled(false);
+        if (num("logoff", 1) >= 1) me.connection.getConnection().disconnect(Component.literal("[Axiom] SpawnerProtect: disconnected"));
+        else me.displayClientMessage(Component.literal("[Axiom] SpawnerProtect: spawners mined."), false);
     }
 }

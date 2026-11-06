@@ -9,6 +9,7 @@ public abstract class Module {
     public final String name;
     public boolean enabled;
     public String category = "Misc";
+    public float anim;
     public final Map<String, String> settings = new LinkedHashMap<>();
 
     protected Module(String name) { this.name = name; }

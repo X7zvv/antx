@@ -29,6 +29,7 @@ public class AutoBuilder extends Module {
         super("AutoBuilder");
         settings.put("delay", "2");      // ticks between placements
         settings.put("reach", "4.5");
+        settings.put("perTick", "1");    // blocks placed per step
         settings.put("rotate", "0");     // 1 = look at the block before placing
     }
 
@@ -66,7 +67,7 @@ public class AutoBuilder extends Module {
 
         double reach2 = num("reach", 4.5) * num("reach", 4.5);
         Vec3 eye = mc.player.getEyePosition();
-        int scanned = 0;
+        int scanned = 0, placedNow = 0, maxPer = Math.max(1, (int) num("perTick", 1));
         for (int i = 0; i < pending.size() && scanned < 4000; i++, scanned++) {
             Schematic.Entry e = pending.get(i);
             BlockPos pos = anchor.offset(e.x(), e.y(), e.z());
@@ -74,7 +75,7 @@ public class AutoBuilder extends Module {
             if (key(cur).equals(e.block())) { pending.remove(i--); continue; }
             if (!cur.isAir() && !cur.canBeReplaced()) continue;
             if (eye.distanceToSqr(Vec3.atCenterOf(pos)) > reach2) continue;
-            if (place(pos, e.block())) { idle = 0; pending.remove(i); return; }
+            if (place(pos, e.block())) { idle = 0; pending.remove(i--); if (++placedNow >= maxPer) return; }
         }
         if (++idle % 100 == 0) {
             String why = missing.isEmpty() ? "remaining blocks out of reach, walk closer" : "put " + missing + " in your hotbar";
